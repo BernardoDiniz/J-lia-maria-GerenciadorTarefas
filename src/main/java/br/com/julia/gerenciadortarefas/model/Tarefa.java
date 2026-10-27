@@ -25,7 +25,6 @@ public class Tarefa {
     }
 
     // ===================== Regras de negócio =====================
-
     public Dificuldade getDificuldade() {
         return Dificuldade.classificar(etapas.size());
     }
@@ -34,9 +33,15 @@ public class Tarefa {
         etapas.add(new Etapa(descricaoEtapa, etapas.size() + 1));
     }
 
-    public void reagendar(LocalDate novoPrazo) {
-        reagendamentos.add(new Reagendamento(prazo, novoPrazo, LocalDateTime.now()));
+    // Retorna o registro de histórico criado, ou null se a tarefa ainda não tinha prazo
+    public Reagendamento reagendar(LocalDate novoPrazo) {
+        Reagendamento registro = null;
+        if (prazo != null) {
+            registro = new Reagendamento(prazo, novoPrazo, LocalDateTime.now());
+            reagendamentos.add(registro);
+        }
         this.prazo = novoPrazo;
+        return registro;
     }
 
     public void concluir() {
@@ -52,42 +57,104 @@ public class Tarefa {
         this.dataExclusao = null;
     }
 
-    public boolean isConcluida() { return status == StatusTarefa.CONCLUIDA; }
-    public boolean isExcluida() { return dataExclusao != null; }
-    public boolean isReagendada() { return !reagendamentos.isEmpty(); }
+    public boolean isConcluida() {
+        return status == StatusTarefa.CONCLUIDA;
+    }
+
+    public boolean isExcluida() {
+        return dataExclusao != null;
+    }
+
+    public boolean isReagendada() {
+        return !reagendamentos.isEmpty();
+    }
 
     // ===================== Getters e setters =====================
+    public Integer getId() {
+        return id;
+    }
 
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
-    public String getTitulo() { return titulo; }
-    public void setTitulo(String titulo) { this.titulo = titulo; }
+    public String getTitulo() {
+        return titulo;
+    }
 
-    public String getDescricao() { return descricao; }
-    public void setDescricao(String descricao) { this.descricao = descricao; }
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
 
-    public Prioridade getPrioridade() { return prioridade; }
-    public void setPrioridade(Prioridade prioridade) { this.prioridade = prioridade; }
+    public String getDescricao() {
+        return descricao;
+    }
 
-    public LocalDate getPrazo() { return prazo; }
-    public void setPrazo(LocalDate prazo) { this.prazo = prazo; }
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
+    }
 
-    public StatusTarefa getStatus() { return status; }
-    public void setStatus(StatusTarefa status) { this.status = status; }
+    public Prioridade getPrioridade() {
+        return prioridade;
+    }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public void setDataCriacao(LocalDateTime dataCriacao) { this.dataCriacao = dataCriacao; }
+    public void setPrioridade(Prioridade prioridade) {
+        this.prioridade = prioridade;
+    }
 
-    public LocalDateTime getDataConclusao() { return dataConclusao; }
-    public void setDataConclusao(LocalDateTime dataConclusao) { this.dataConclusao = dataConclusao; }
+    public LocalDate getPrazo() {
+        return prazo;
+    }
 
-    public LocalDateTime getDataExclusao() { return dataExclusao; }
-    public void setDataExclusao(LocalDateTime dataExclusao) { this.dataExclusao = dataExclusao; }
+    public void setPrazo(LocalDate prazo) {
+        this.prazo = prazo;
+    }
 
-    public List<Etapa> getEtapas() { return etapas; }
-    public void setEtapas(List<Etapa> etapas) { this.etapas = etapas; }
+    public StatusTarefa getStatus() {
+        return status;
+    }
 
-    public List<Reagendamento> getReagendamentos() { return reagendamentos; }
-    public void setReagendamentos(List<Reagendamento> reagendamentos) { this.reagendamentos = reagendamentos; }
+    public void setStatus(StatusTarefa status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataConclusao() {
+        return dataConclusao;
+    }
+
+    public void setDataConclusao(LocalDateTime dataConclusao) {
+        this.dataConclusao = dataConclusao;
+    }
+
+    public LocalDateTime getDataExclusao() {
+        return dataExclusao;
+    }
+
+    public void setDataExclusao(LocalDateTime dataExclusao) {
+        this.dataExclusao = dataExclusao;
+    }
+
+    public List<Etapa> getEtapas() {
+        return etapas;
+    }
+
+    public void setEtapas(List<Etapa> etapas) {
+        this.etapas = etapas;
+    }
+
+    public List<Reagendamento> getReagendamentos() {
+        return reagendamentos;
+    }
+
+    public void setReagendamentos(List<Reagendamento> reagendamentos) {
+        this.reagendamentos = reagendamentos;
+    }
 }

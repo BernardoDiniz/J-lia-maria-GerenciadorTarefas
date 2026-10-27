@@ -17,17 +17,15 @@ public class TarefaDAO {
     // ===================== CADASTRAR =====================
 
     public void inserir(Tarefa tarefa) throws SQLException {
-        String sqlTarefa = """
+        String sql = """
             INSERT INTO tarefa (titulo, descricao, prioridade, prazo, status, data_criacao)
             VALUES (?, ?, ?, ?, ?, ?)
             """;
-        String sqlEtapa = "INSERT INTO etapa (tarefa_id, descricao, ordem) VALUES (?, ?, ?)";
 
         try (Connection conexao = ConexaoBD.getConexao()) {
-            conexao.setAutoCommit(false); // inicia uma transação
+            conexao.setAutoCommit(false);
             try {
-                // 1) Grava a tarefa
-                try (PreparedStatement ps = conexao.prepareStatement(sqlTarefa)) {
+                try (PreparedStatement ps = conexao.prepareStatement(sql)) {
                     ps.setString(1, tarefa.getTitulo());
                     ps.setString(2, tarefa.getDescricao());
                     ps.setString(3, tarefa.getPrioridade().name());
@@ -37,26 +35,84 @@ public class TarefaDAO {
                     ps.executeUpdate();
                 }
 
-                // 2) Descobre o id que o banco gerou para essa tarefa
                 try (Statement st = conexao.createStatement();
                      ResultSet rs = st.executeQuery("SELECT last_insert_rowid()")) {
                     rs.next();
                     tarefa.setId(rs.getInt(1));
                 }
 
-                // 3) Grava as etapas ligadas a esse id
-                try (PreparedStatement ps = conexao.prepareStatement(sqlEtapa)) {
-                    for (Etapa etapa : tarefa.getEtapas()) {
+                inserirEtapas(conexao, tarefa);
+                conexao.commit();
+            } catch (SQLException e) {
+                conexao.rollback();
+                throw e;
+            }
+        }
+    }
+
+    // ===================== EDITAR =====================
+
+    public void atualizar(Tarefa tarefa) throws SQLException {
+        String sql = "UPDATE tarefa SET titulo = ?, descricao = ?, prioridade = ? WHERE id = ?";
+
+        try (Connection conexao = ConexaoBD.getConexao()) {
+            conexao.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conexao.prepareStatement(sql)) {
+                    ps.setString(1, tarefa.getTitulo());
+                    ps.setString(2, tarefa.getDescricao());
+                    ps.setString(3, tarefa.getPrioridade().name());
+                    ps.setInt(4, tarefa.getId());
+                    ps.executeUpdate();
+                }
+
+                // Substitui as etapas antigas pela lista atual
+                try (PreparedStatement ps = conexao.prepareStatement(
+                        "DELETE FROM etapa WHERE tarefa_id = ?")) {
+                    ps.setInt(1, tarefa.getId());
+                    ps.executeUpdate();
+                }
+                inserirEtapas(conexao, tarefa);
+
+                conexao.commit();
+            } catch (SQLException e) {
+                conexao.rollback();
+                throw e;
+            }
+        }
+    }
+
+    // ===================== REAGENDAR =====================
+
+    public void atualizarPrazo(Tarefa tarefa, Reagendamento registro) throws SQLException {
+        try (Connection conexao = ConexaoBD.getConexao()) {
+            conexao.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conexao.prepareStatement(
+                        "UPDATE tarefa SET prazo = ? WHERE id = ?")) {
+                    ps.setString(1, paraTexto(tarefa.getPrazo()));
+                    ps.setInt(2, tarefa.getId());
+                    ps.executeUpdate();
+                }
+
+                // Só grava histórico se havia um prazo anterior
+                if (registro != null) {
+                    String sql = """
+                        INSERT INTO reagendamento (tarefa_id, prazo_anterior, prazo_novo, data_reagendamento)
+                        VALUES (?, ?, ?, ?)
+                        """;
+                    try (PreparedStatement ps = conexao.prepareStatement(sql)) {
                         ps.setInt(1, tarefa.getId());
-                        ps.setString(2, etapa.getDescricao());
-                        ps.setInt(3, etapa.getOrdem());
+                        ps.setString(2, paraTexto(registro.getPrazoAnterior()));
+                        ps.setString(3, paraTexto(registro.getPrazoNovo()));
+                        ps.setString(4, paraTexto(registro.getDataReagendamento()));
                         ps.executeUpdate();
                     }
                 }
 
-                conexao.commit();   // confirma tudo de uma vez
+                conexao.commit();
             } catch (SQLException e) {
-                conexao.rollback(); // desfaz tudo se algo falhou
+                conexao.rollback();
                 throw e;
             }
         }
@@ -83,6 +139,18 @@ public class TarefaDAO {
     }
 
     // ===================== Métodos auxiliares =====================
+
+    private void inserirEtapas(Connection conexao, Tarefa tarefa) throws SQLException {
+        String sql = "INSERT INTO etapa (tarefa_id, descricao, ordem) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
+            for (Etapa etapa : tarefa.getEtapas()) {
+                ps.setInt(1, tarefa.getId());
+                ps.setString(2, etapa.getDescricao());
+                ps.setInt(3, etapa.getOrdem());
+                ps.executeUpdate();
+            }
+        }
+    }
 
     private Tarefa montarTarefa(ResultSet rs) throws SQLException {
         Tarefa t = new Tarefa();
@@ -133,7 +201,6 @@ public class TarefaDAO {
         return lista;
     }
 
-    // Conversões entre Java e texto do banco (null continua null)
     private static String paraTexto(LocalDate data) {
         return data == null ? null : data.toString();
     }

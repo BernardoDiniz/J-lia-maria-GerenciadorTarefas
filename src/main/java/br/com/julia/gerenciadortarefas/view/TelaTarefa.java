@@ -1,6 +1,7 @@
 package br.com.julia.gerenciadortarefas.view;
 
 import br.com.julia.gerenciadortarefas.model.Dificuldade;
+import br.com.julia.gerenciadortarefas.model.Etapa;
 import br.com.julia.gerenciadortarefas.model.Prioridade;
 import br.com.julia.gerenciadortarefas.model.Tarefa;
 import br.com.julia.gerenciadortarefas.service.TarefaService;
@@ -14,26 +15,38 @@ import javax.swing.*;
 
 public class TelaTarefa extends JDialog {
 
-    // STRICT: recusa datas que não existem, como 31/02/2026
-    private static final DateTimeFormatter FORMATO_DATA
-            = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter FORMATO_DATA =
+            DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final TarefaService service = new TarefaService();
+    private final Tarefa tarefaEditada; // null = cadastro novo; preenchida = edição
     private boolean salvou = false;
 
     private final JTextField campoTitulo = new JTextField(30);
     private final JTextArea campoDescricao = new JTextArea(3, 30);
     private final JComboBox<Prioridade> comboPrioridade = new JComboBox<>(Prioridade.values());
     private final JTextField campoPrazo = new JTextField(10);
+    private final JLabel rotuloAjudaPrazo = new JLabel("  dd/mm/aaaa (vazio = sem prazo)");
     private final JTextField campoNovaEtapa = new JTextField(22);
     private final DefaultListModel<String> modeloEtapas = new DefaultListModel<>();
     private final JList<String> listaEtapas = new JList<>(modeloEtapas);
     private final JLabel rotuloDificuldade = new JLabel();
 
+    // Construtor para CADASTRO
     public TelaTarefa(Frame dono) {
-        super(dono, "Nova tarefa", true); // true = modal (bloqueia a tela de trás)
+        this(dono, null);
+    }
+
+    // Construtor para EDIÇÃO
+    public TelaTarefa(Frame dono, Tarefa tarefa) {
+        super(dono, tarefa == null ? "Nova tarefa" : "Editar tarefa #" + tarefa.getId(), true);
+        this.tarefaEditada = tarefa;
         montarTela();
-        comboPrioridade.setSelectedIndex(-1); // obriga o usuário a escolher
+        if (tarefa == null) {
+            comboPrioridade.setSelectedIndex(-1); // obriga a escolher
+        } else {
+            preencherCampos(tarefa);
+        }
         atualizarDificuldade();
         pack();
         setLocationRelativeTo(dono);
@@ -58,7 +71,7 @@ public class TelaTarefa extends JDialog {
 
         JPanel painelPrazo = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         painelPrazo.add(campoPrazo);
-        painelPrazo.add(new JLabel("  dd/mm/aaaa (vazio = sem prazo)"));
+        painelPrazo.add(rotuloAjudaPrazo);
         adicionarLinha(formulario, c, linha++, "Prazo:", painelPrazo);
 
         JButton botaoAdicionar = new JButton("Adicionar");
@@ -76,9 +89,8 @@ public class TelaTarefa extends JDialog {
 
         adicionarLinha(formulario, c, linha++, "Dificuldade:", rotuloDificuldade);
 
-        // Eventos (o que acontece ao clicar)
         botaoAdicionar.addActionListener(e -> adicionarEtapa());
-        campoNovaEtapa.addActionListener(e -> adicionarEtapa()); // Enter também adiciona
+        campoNovaEtapa.addActionListener(e -> adicionarEtapa());
         botaoRemover.addActionListener(e -> removerEtapa());
 
         JButton botaoSalvar = new JButton("Salvar");
@@ -94,8 +106,21 @@ public class TelaTarefa extends JDialog {
         getContentPane().add(painelBotoes, BorderLayout.SOUTH);
     }
 
+    // Preenche os campos com os dados da tarefa que será editada
+    private void preencherCampos(Tarefa t) {
+        campoTitulo.setText(t.getTitulo());
+        campoDescricao.setText(t.getDescricao() == null ? "" : t.getDescricao());
+        comboPrioridade.setSelectedItem(t.getPrioridade());
+        campoPrazo.setText(t.getPrazo() == null ? "" : t.getPrazo().format(FORMATO_DATA));
+        campoPrazo.setEnabled(false); // prazo só muda pelo Reagendar
+        rotuloAjudaPrazo.setText("  para alterar, use o botão Reagendar");
+        for (Etapa etapa : t.getEtapas()) {
+            modeloEtapas.addElement(etapa.getDescricao());
+        }
+    }
+
     private void adicionarLinha(JPanel painel, GridBagConstraints c, int linha,
-            String rotulo, Component campo) {
+                                String rotulo, Component campo) {
         c.gridx = 0;
         c.gridy = linha;
         c.weightx = 0;
@@ -129,7 +154,6 @@ public class TelaTarefa extends JDialog {
         atualizarDificuldade();
     }
 
-    // Mostra a dificuldade ao vivo, conforme o usuário adiciona/remove etapas
     private void atualizarDificuldade() {
         int qtd = modeloEtapas.size();
         if (qtd == 0) {
@@ -140,34 +164,47 @@ public class TelaTarefa extends JDialog {
     }
 
     private void salvar() {
-        Tarefa tarefa = new Tarefa();
+        boolean novaTarefa = (tarefaEditada == null);
+        Tarefa tarefa = novaTarefa ? new Tarefa() : tarefaEditada;
+
         tarefa.setTitulo(campoTitulo.getText().trim());
         String descricao = campoDescricao.getText().trim();
         tarefa.setDescricao(descricao.isEmpty() ? null : descricao);
         tarefa.setPrioridade((Prioridade) comboPrioridade.getSelectedItem());
 
-        String textoPrazo = campoPrazo.getText().trim();
-        if (!textoPrazo.isEmpty()) {
-            try {
-                tarefa.setPrazo(LocalDate.parse(textoPrazo, FORMATO_DATA));
-            } catch (DateTimeParseException ex) {
-                JOptionPane.showMessageDialog(this,
-                        "Prazo inválido. Use o formato dd/mm/aaaa (ex.: 30/11/2026).",
-                        "Atenção", JOptionPane.WARNING_MESSAGE);
-                return;
+        // O prazo só é lido do campo no cadastro (na edição ele está bloqueado)
+        if (novaTarefa) {
+            String textoPrazo = campoPrazo.getText().trim();
+            if (!textoPrazo.isEmpty()) {
+                try {
+                    tarefa.setPrazo(LocalDate.parse(textoPrazo, FORMATO_DATA));
+                } catch (DateTimeParseException ex) {
+                    JOptionPane.showMessageDialog(this,
+                            "Prazo inválido. Use o formato dd/mm/aaaa (ex.: 30/11/2026).",
+                            "Atenção", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
             }
         }
 
+        tarefa.getEtapas().clear();
         for (int i = 0; i < modeloEtapas.size(); i++) {
             tarefa.adicionarEtapa(modeloEtapas.get(i));
         }
 
         try {
-            service.cadastrar(tarefa);
+            if (novaTarefa) {
+                service.cadastrar(tarefa);
+                JOptionPane.showMessageDialog(this,
+                        "Tarefa cadastrada com sucesso! (id " + tarefa.getId() + ")",
+                        "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                service.editar(tarefa);
+                JOptionPane.showMessageDialog(this,
+                        "Tarefa #" + tarefa.getId() + " atualizada com sucesso!",
+                        "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            }
             salvou = true;
-            JOptionPane.showMessageDialog(this,
-                    "Tarefa cadastrada com sucesso! (id " + tarefa.getId() + ")",
-                    "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             dispose();
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(),
