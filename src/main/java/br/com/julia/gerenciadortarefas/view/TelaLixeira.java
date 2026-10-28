@@ -42,6 +42,8 @@ public class TelaLixeira extends JDialog {
         tabela.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tabela.getColumnModel().getColumn(0).setMaxWidth(50);
         tabela.getColumnModel().getColumn(3).setMaxWidth(60);
+        tabela.setDefaultRenderer(Object.class,
+                new RenderizadorTarefa(linha -> tarefasExibidas.get(linha)));
 
         JButton botaoRestaurar = new JButton("Restaurar");
         JButton botaoFechar = new JButton("Fechar");

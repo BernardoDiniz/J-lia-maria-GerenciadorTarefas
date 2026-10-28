@@ -15,8 +15,8 @@ import javax.swing.table.DefaultTableModel;
 
 public class TelaPrincipal extends JFrame {
 
-    private static final DateTimeFormatter FORMATO_DATA =
-            DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter FORMATO_DATA
+            = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final TarefaService service = new TarefaService();
     private List<Tarefa> tarefasExibidas = new ArrayList<>();
@@ -70,8 +70,20 @@ public class TelaPrincipal extends JFrame {
         tabela.getColumnModel().getColumn(0).setMaxWidth(50);
         tabela.getColumnModel().getColumn(4).setMaxWidth(60);
 
+        // Cores das linhas conforme a situação da tarefa
+        tabela.setDefaultRenderer(Object.class,
+                new RenderizadorTarefa(linha -> tarefasExibidas.get(linha)));
+
+        // Legenda das cores no rodapé
+        JPanel legenda = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        legenda.add(new JLabel("Legenda:"));
+        legenda.add(RenderizadorTarefa.criarItemLegenda("Concluída", RenderizadorTarefa.COR_CONCLUIDA));
+        legenda.add(RenderizadorTarefa.criarItemLegenda("Reagendada", RenderizadorTarefa.COR_REAGENDADA));
+        legenda.add(RenderizadorTarefa.criarItemLegenda("Excluída (ver Lixeira)", RenderizadorTarefa.COR_EXCLUIDA));
+
         add(barra, BorderLayout.NORTH);
         add(new JScrollPane(tabela), BorderLayout.CENTER);
+        add(legenda, BorderLayout.SOUTH);
     }
 
     private void carregarTarefas() {
