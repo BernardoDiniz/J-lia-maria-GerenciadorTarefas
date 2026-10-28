@@ -15,7 +15,6 @@ import java.util.List;
 public class TarefaDAO {
 
     // ===================== CADASTRAR =====================
-
     public void inserir(Tarefa tarefa) throws SQLException {
         String sql = """
             INSERT INTO tarefa (titulo, descricao, prioridade, prazo, status, data_criacao)
@@ -35,8 +34,7 @@ public class TarefaDAO {
                     ps.executeUpdate();
                 }
 
-                try (Statement st = conexao.createStatement();
-                     ResultSet rs = st.executeQuery("SELECT last_insert_rowid()")) {
+                try (Statement st = conexao.createStatement(); ResultSet rs = st.executeQuery("SELECT last_insert_rowid()")) {
                     rs.next();
                     tarefa.setId(rs.getInt(1));
                 }
@@ -51,7 +49,6 @@ public class TarefaDAO {
     }
 
     // ===================== EDITAR =====================
-
     public void atualizar(Tarefa tarefa) throws SQLException {
         String sql = "UPDATE tarefa SET titulo = ?, descricao = ?, prioridade = ? WHERE id = ?";
 
@@ -83,7 +80,6 @@ public class TarefaDAO {
     }
 
     // ===================== REAGENDAR =====================
-
     public void atualizarPrazo(Tarefa tarefa, Reagendamento registro) throws SQLException {
         try (Connection conexao = ConexaoBD.getConexao()) {
             conexao.setAutoCommit(false);
@@ -118,12 +114,10 @@ public class TarefaDAO {
         }
     }
 
-        // ===================== CONCLUIR =====================
-
+    // ===================== CONCLUIR =====================
     public void marcarConcluida(Tarefa tarefa) throws SQLException {
         String sql = "UPDATE tarefa SET status = ?, data_conclusao = ? WHERE id = ?";
-        try (Connection conexao = ConexaoBD.getConexao();
-             PreparedStatement ps = conexao.prepareStatement(sql)) {
+        try (Connection conexao = ConexaoBD.getConexao(); PreparedStatement ps = conexao.prepareStatement(sql)) {
             ps.setString(1, tarefa.getStatus().name());
             ps.setString(2, paraTexto(tarefa.getDataConclusao()));
             ps.setInt(3, tarefa.getId());
@@ -131,15 +125,23 @@ public class TarefaDAO {
         }
     }
 
-// ===================== LISTAR =====================
+    // ===================== EXCLUIR / RESTAURAR =====================
+    // Grava a data de exclusão da tarefa (preenchida = excluída; null = restaurada)
+    public void atualizarExclusao(Tarefa tarefa) throws SQLException {
+        String sql = "UPDATE tarefa SET data_exclusao = ? WHERE id = ?";
+        try (Connection conexao = ConexaoBD.getConexao(); PreparedStatement ps = conexao.prepareStatement(sql)) {
+            ps.setString(1, paraTexto(tarefa.getDataExclusao()));
+            ps.setInt(2, tarefa.getId());
+            ps.executeUpdate();
+        }
+    }
 
+// ===================== LISTAR =====================
     public List<Tarefa> listarAtivas() throws SQLException {
         String sql = "SELECT * FROM tarefa WHERE data_exclusao IS NULL ORDER BY id";
         List<Tarefa> tarefas = new ArrayList<>();
 
-        try (Connection conexao = ConexaoBD.getConexao();
-             PreparedStatement ps = conexao.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (Connection conexao = ConexaoBD.getConexao(); PreparedStatement ps = conexao.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 Tarefa t = montarTarefa(rs);
@@ -151,8 +153,24 @@ public class TarefaDAO {
         return tarefas;
     }
 
-    // ===================== Métodos auxiliares =====================
+    // Tarefas que estão na lixeira (as excluídas mais recentes primeiro)
+    public List<Tarefa> listarExcluidas() throws SQLException {
+        String sql = "SELECT * FROM tarefa WHERE data_exclusao IS NOT NULL ORDER BY data_exclusao DESC";
+        List<Tarefa> tarefas = new ArrayList<>();
 
+        try (Connection conexao = ConexaoBD.getConexao(); PreparedStatement ps = conexao.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Tarefa t = montarTarefa(rs);
+                t.setEtapas(buscarEtapas(conexao, t.getId()));
+                t.setReagendamentos(buscarReagendamentos(conexao, t.getId()));
+                tarefas.add(t);
+            }
+        }
+        return tarefas;
+    }
+
+// ===================== Métodos auxiliares =====================
     private void inserirEtapas(Connection conexao, Tarefa tarefa) throws SQLException {
         String sql = "INSERT INTO etapa (tarefa_id, descricao, ordem) VALUES (?, ?, ?)";
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {

@@ -49,6 +49,26 @@ public class TarefaService {
         dao.marcarConcluida(tarefa);
     }
 
+    public void excluir(Tarefa tarefa) throws SQLException {
+        if (tarefa.isExcluida()) {
+            throw new IllegalArgumentException("Esta tarefa já está na lixeira.");
+        }
+        tarefa.excluir();
+        dao.atualizarExclusao(tarefa);
+    }
+
+    public void restaurar(Tarefa tarefa) throws SQLException {
+        if (!tarefa.isExcluida()) {
+            throw new IllegalArgumentException("Esta tarefa não está na lixeira.");
+        }
+        tarefa.restaurar();
+        dao.atualizarExclusao(tarefa);
+    }
+
+    public List<Tarefa> listarExcluidas() throws SQLException {
+        return dao.listarExcluidas();
+    }   
+
     public List<Tarefa> listarAtivas() throws SQLException {
         return dao.listarAtivas();
     }

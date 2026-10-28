@@ -35,7 +35,7 @@ public class TelaPrincipal extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         montarTela();
         carregarTarefas();
-        setSize(950, 500);
+        setSize(1000, 500);
         setLocationRelativeTo(null);
     }
 
@@ -44,12 +44,16 @@ public class TelaPrincipal extends JFrame {
         JButton botaoEditar = new JButton("Editar");
         JButton botaoReagendar = new JButton("Reagendar");
         JButton botaoConcluir = new JButton("Concluir");
+        JButton botaoExcluir = new JButton("Excluir");
+        JButton botaoLixeira = new JButton("Lixeira");
         JButton botaoAtualizar = new JButton("Atualizar lista");
 
         botaoNova.addActionListener(e -> abrirCadastro());
         botaoEditar.addActionListener(e -> abrirEdicao());
         botaoReagendar.addActionListener(e -> reagendar());
         botaoConcluir.addActionListener(e -> concluir());
+        botaoExcluir.addActionListener(e -> excluir());
+        botaoLixeira.addActionListener(e -> abrirLixeira());
         botaoAtualizar.addActionListener(e -> carregarTarefas());
 
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -57,6 +61,8 @@ public class TelaPrincipal extends JFrame {
         barra.add(botaoEditar);
         barra.add(botaoReagendar);
         barra.add(botaoConcluir);
+        barra.add(botaoExcluir);
+        barra.add(botaoLixeira);
         barra.add(botaoAtualizar);
 
         tabela.setRowHeight(24);
@@ -110,7 +116,6 @@ public class TelaPrincipal extends JFrame {
         return tarefasExibidas.get(linha);
     }
 
-    // Avisa e retorna true se a tarefa estiver concluída (usada antes de editar/reagendar)
     private boolean bloqueadaPorConclusao(Tarefa tarefa, String acao) {
         if (tarefa.isConcluida()) {
             JOptionPane.showMessageDialog(this,
@@ -195,7 +200,7 @@ public class TelaPrincipal extends JFrame {
                 "Marcar a tarefa \"" + tarefa.getTitulo() + "\" como concluída?",
                 "Concluir tarefa", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
         if (resposta != JOptionPane.YES_OPTION) {
-            return; // clicou em Não ou fechou a janela
+            return;
         }
 
         try {
@@ -210,5 +215,38 @@ public class TelaPrincipal extends JFrame {
                     "Erro", JOptionPane.ERROR_MESSAGE);
         }
         carregarTarefas();
+    }
+
+    private void excluir() {
+        Tarefa tarefa = tarefaSelecionada();
+        if (tarefa == null) {
+            return;
+        }
+
+        int resposta = JOptionPane.showConfirmDialog(this,
+                "Mover a tarefa \"" + tarefa.getTitulo() + "\" para a lixeira?\n"
+                + "Ela não será apagada e poderá ser restaurada depois.",
+                "Excluir tarefa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (resposta != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            service.excluir(tarefa);
+            JOptionPane.showMessageDialog(this, "Tarefa movida para a lixeira.",
+                    "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(),
+                    "Atenção", JOptionPane.WARNING_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao excluir:\n" + ex.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+        carregarTarefas();
+    }
+
+    private void abrirLixeira() {
+        new TelaLixeira(this).setVisible(true);
+        carregarTarefas(); // mostra na lista principal as tarefas restauradas
     }
 }
