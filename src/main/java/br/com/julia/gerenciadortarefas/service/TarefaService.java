@@ -41,6 +41,14 @@ public class TarefaService {
         dao.atualizarPrazo(tarefa, registro);
     }
 
+    public void concluir(Tarefa tarefa) throws SQLException {
+        if (tarefa.isConcluida()) {
+            throw new IllegalArgumentException("Esta tarefa já está concluída.");
+        }
+        tarefa.concluir();
+        dao.marcarConcluida(tarefa);
+    }
+
     public List<Tarefa> listarAtivas() throws SQLException {
         return dao.listarAtivas();
     }

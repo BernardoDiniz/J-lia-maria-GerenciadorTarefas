@@ -19,7 +19,7 @@ public class TelaPrincipal extends JFrame {
             DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final TarefaService service = new TarefaService();
-    private List<Tarefa> tarefasExibidas = new ArrayList<>(); // mesma ordem das linhas da tabela
+    private List<Tarefa> tarefasExibidas = new ArrayList<>();
 
     private final DefaultTableModel modeloTabela = new DefaultTableModel(
             new Object[]{"ID", "Título", "Prioridade", "Dificuldade", "Etapas", "Prazo", "Status"}, 0) {
@@ -43,17 +43,20 @@ public class TelaPrincipal extends JFrame {
         JButton botaoNova = new JButton("Nova tarefa");
         JButton botaoEditar = new JButton("Editar");
         JButton botaoReagendar = new JButton("Reagendar");
+        JButton botaoConcluir = new JButton("Concluir");
         JButton botaoAtualizar = new JButton("Atualizar lista");
 
         botaoNova.addActionListener(e -> abrirCadastro());
         botaoEditar.addActionListener(e -> abrirEdicao());
         botaoReagendar.addActionListener(e -> reagendar());
+        botaoConcluir.addActionListener(e -> concluir());
         botaoAtualizar.addActionListener(e -> carregarTarefas());
 
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT));
         barra.add(botaoNova);
         barra.add(botaoEditar);
         barra.add(botaoReagendar);
+        barra.add(botaoConcluir);
         barra.add(botaoAtualizar);
 
         tabela.setRowHeight(24);
@@ -97,7 +100,6 @@ public class TelaPrincipal extends JFrame {
         return texto;
     }
 
-    // Retorna a tarefa da linha selecionada, ou null (com aviso) se nada estiver selecionado
     private Tarefa tarefaSelecionada() {
         int linha = tabela.getSelectedRow();
         if (linha < 0) {
@@ -108,6 +110,17 @@ public class TelaPrincipal extends JFrame {
         return tarefasExibidas.get(linha);
     }
 
+    // Avisa e retorna true se a tarefa estiver concluída (usada antes de editar/reagendar)
+    private boolean bloqueadaPorConclusao(Tarefa tarefa, String acao) {
+        if (tarefa.isConcluida()) {
+            JOptionPane.showMessageDialog(this,
+                    "Tarefas concluídas não podem ser " + acao + ".",
+                    "Atenção", JOptionPane.WARNING_MESSAGE);
+            return true;
+        }
+        return false;
+    }
+
     private void abrirCadastro() {
         new TelaTarefa(this).setVisible(true);
         carregarTarefas();
@@ -115,16 +128,16 @@ public class TelaPrincipal extends JFrame {
 
     private void abrirEdicao() {
         Tarefa tarefa = tarefaSelecionada();
-        if (tarefa == null) {
+        if (tarefa == null || bloqueadaPorConclusao(tarefa, "editadas")) {
             return;
         }
         new TelaTarefa(this, tarefa).setVisible(true);
-        carregarTarefas(); // relê do banco: descarta qualquer alteração que não foi salva
+        carregarTarefas();
     }
 
     private void reagendar() {
         Tarefa tarefa = tarefaSelecionada();
-        if (tarefa == null) {
+        if (tarefa == null || bloqueadaPorConclusao(tarefa, "reagendadas")) {
             return;
         }
 
@@ -136,7 +149,7 @@ public class TelaPrincipal extends JFrame {
                 "Reagendar tarefa", JOptionPane.QUESTION_MESSAGE);
 
         if (texto == null) {
-            return; // clicou em Cancelar
+            return;
         }
 
         LocalDate novoPrazo = null;
@@ -155,13 +168,45 @@ public class TelaPrincipal extends JFrame {
         try {
             service.reagendar(tarefa, novoPrazo);
             JOptionPane.showMessageDialog(this,
-                     "Prazo atualizado para " + tarefa.getPrazo().format(FORMATO_DATA) + ".",
+                    "Prazo atualizado para " + tarefa.getPrazo().format(FORMATO_DATA) + ".",
                     "Sucesso", JOptionPane.INFORMATION_MESSAGE);
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(),
                     "Atenção", JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Erro ao reagendar:\n" + ex.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+        carregarTarefas();
+    }
+
+    private void concluir() {
+        Tarefa tarefa = tarefaSelecionada();
+        if (tarefa == null) {
+            return;
+        }
+        if (tarefa.isConcluida()) {
+            JOptionPane.showMessageDialog(this, "Esta tarefa já está concluída.",
+                    "Atenção", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int resposta = JOptionPane.showConfirmDialog(this,
+                "Marcar a tarefa \"" + tarefa.getTitulo() + "\" como concluída?",
+                "Concluir tarefa", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        if (resposta != JOptionPane.YES_OPTION) {
+            return; // clicou em Não ou fechou a janela
+        }
+
+        try {
+            service.concluir(tarefa);
+            JOptionPane.showMessageDialog(this, "Tarefa concluída!",
+                    "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(),
+                    "Atenção", JOptionPane.WARNING_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao concluir:\n" + ex.getMessage(),
                     "Erro", JOptionPane.ERROR_MESSAGE);
         }
         carregarTarefas();

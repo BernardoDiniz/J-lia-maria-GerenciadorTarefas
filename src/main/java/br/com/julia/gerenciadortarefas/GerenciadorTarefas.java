@@ -10,12 +10,16 @@ import javax.swing.UIManager;
 public class GerenciadorTarefas {
 
     public static void main(String[] args) {
-        // Usa o visual do Windows nas telas
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
             // se falhar, mantém o visual padrão do Java
         }
+
+        // Textos dos botões padrão das caixas de mensagem em português
+        UIManager.put("OptionPane.yesButtonText", "Sim");
+        UIManager.put("OptionPane.noButtonText", "Não");
+        UIManager.put("OptionPane.cancelButtonText", "Cancelar");
 
         try {
             InicializadorBD.criarTabelas();
@@ -25,7 +29,6 @@ public class GerenciadorTarefas {
             return;
         }
 
-        // Telas Swing devem ser criadas na "thread de eventos" do Swing
         SwingUtilities.invokeLater(() -> new TelaPrincipal().setVisible(true));
     }
 }

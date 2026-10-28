@@ -118,7 +118,20 @@ public class TarefaDAO {
         }
     }
 
-    // ===================== LISTAR =====================
+        // ===================== CONCLUIR =====================
+
+    public void marcarConcluida(Tarefa tarefa) throws SQLException {
+        String sql = "UPDATE tarefa SET status = ?, data_conclusao = ? WHERE id = ?";
+        try (Connection conexao = ConexaoBD.getConexao();
+             PreparedStatement ps = conexao.prepareStatement(sql)) {
+            ps.setString(1, tarefa.getStatus().name());
+            ps.setString(2, paraTexto(tarefa.getDataConclusao()));
+            ps.setInt(3, tarefa.getId());
+            ps.executeUpdate();
+        }
+    }
+
+// ===================== LISTAR =====================
 
     public List<Tarefa> listarAtivas() throws SQLException {
         String sql = "SELECT * FROM tarefa WHERE data_exclusao IS NULL ORDER BY id";
